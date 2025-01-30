@@ -6,13 +6,12 @@ vim.g.maplocalleader = ' '
 vim.g.have_nerd_font = true
 
 -- Enable forced transparency for all things
-vim.g.enable_transparency_opts = false
+vim.g.enable_transparency_opts = true
 
 -- Disable usage of arrow keys in normal mode
 vim.g.disable_arrow_keys = false
 
 -- [[ Setting options ]]
--- NOTE: You can change these options as you wish!
 --  For more options, you can see `:help option-list`
 
 -- Make line numbers default
@@ -63,7 +62,12 @@ vim.opt.smartcase = true
 
 -- Sets how neovim will display certain whitespace characters in the editor.
 vim.opt.list = true
-vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.listchars = {
+  -- tab = '» ',
+  tab = '⎸ ',
+  trail = '·',
+  nbsp = '␣'
+}
 
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = 'split'
@@ -172,7 +176,7 @@ require('lazy').setup({
     lazy = false,
   },
 
-  { -- Useful plugin to show you pending keybinds.
+  {                     -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
     event = 'VimEnter', -- Sets the loading event to 'VimEnter'
     opts = {
@@ -215,7 +219,7 @@ require('lazy').setup({
 
       -- Document existing key chains
       spec = {
-        { '<leader>c', group = '[C]ode', mode = { 'n', 'x' } },
+        { '<leader>c', group = '[C]ode',     mode = { 'n', 'x' } },
         { '<leader>d', group = '[D]ocument' },
         { '<leader>r', group = '[R]ename' },
         { '<leader>s', group = '[S]earch' },
@@ -248,7 +252,10 @@ require('lazy').setup({
       { 'nvim-telescope/telescope-ui-select.nvim' },
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
-      { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+      {
+        'nvim-tree/nvim-web-devicons',
+        enabled = vim.g.have_nerd_font
+      },
     },
     config = function()
       -- Two important keymaps to use while in Telescope are:
@@ -337,11 +344,6 @@ require('lazy').setup({
     -- Main LSP Configuration
     'neovim/nvim-lspconfig',
     dependencies = {
-      -- Automatically install LSPs and related tools to stdpath for Neovim
-      { 'williamboman/mason.nvim', config = true }, -- NOTE: Must be loaded before dependants
-      'williamboman/mason-lspconfig.nvim',
-      'WhoIsSethDaniel/mason-tool-installer.nvim',
-
       -- Useful status updates for LSP.
       {
         'j-hui/fidget.nvim',
@@ -413,102 +415,37 @@ require('lazy').setup({
       end
 
       -- LSP servers and clients are able to communicate to each other what features they support.
-      --  By default, Neovim doesn't support everything that is in the LSP specification.
-      --  When you add nvim-cmp, luasnip, etc. Neovim now has *more* capabilities.
-      --  So, we create new capabilities with nvim cmp, and then broadcast that to the servers.
       local capabilities = vim.lsp.protocol.make_client_capabilities()
       capabilities = vim.tbl_deep_extend('force', capabilities, require('cmp_nvim_lsp').default_capabilities())
 
-      -- Enable the following language servers
-      --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
-      --
-      --  Add any additional override configuration in the following tables. Available keys are:
-      --  - cmd (table): Override the default command used to start the server
-      --  - filetypes (table): Override the default list of associated filetypes for the server
-      --  - capabilities (table): Override fields in capabilities. Can be used to disable certain LSP features.
-      --  - settings (table): Override the default settings passed when initializing the server.
-      --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
+      -- Define servers based on the `ensure_installed` list from mason-lspconfig
       local servers = {
-        -- clangd = {},
-        -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
-        -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
-        --
-        -- Some languages (like typescript) have entire language plugins that can be useful:
-        --    https://github.com/pmizio/typescript-tools.nvim
-        --
-        -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
-        --
+        'lua_ls', 'marksman', 'zls', 'svelte', 'pyright', 'rust_analyzer', 'clangd', 'cssls',
+        'css_variables', 'astro', 'tailwindcss', 'ts_ls', 'nixd', 'gopls', 'golangci_lint_ls'
+      }
 
-        lua_ls = {
-          -- cmd = { ... }
-          -- filetypes = { ... },
+      -- Setup each LSP server manually
+      for _, server in ipairs(servers) do
+        local config = {
           capabilities = capabilities,
-          settings = {
-            Lua = {
-              completion = {
-                callSnippet = 'Replace',
+        }
+
+        if server == "nixd" then
+          config.cmd = { "nixd" }
+          config.settings = {
+            nixd = {
+              nixpkgs = {
+                expr = "import <nixpkgs> {}",
               },
-              -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
-              -- diagnostics = { disable = { 'missing-fields' } },
             },
-          },
-        },
-      }
+            formatting = {
+              command = { "alejandra" }, -- or nixfmt or nixpkgs-fmt
+            },
+          }
+        end
 
-      -- Ensure the servers and tools above are installed
-      --  To check the current status of installed tools and/or manually install
-      --  other tools, you can run
-      --    :Mason
-      --
-      --  You can press `g?` for help in this menu.
-      require('mason').setup()
-
-      -- You can add other tools here that you want Mason to install
-      -- for you, so that they are available from within Neovim.
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua', -- Used to format Lua code
-      })
-      require('mason-tool-installer').setup {
-        ensure_installed = ensure_installed,
-      }
-
-      require('mason-lspconfig').setup {
-        ensure_installed = {
-          'lua_ls',
-          'marksman',
-          'zls',
-          'svelte',
-          'pyright',
-          'asm_lsp',
-          'rust_analyzer',
-          'clangd',
-          'cssls',
-          'css_variables',
-          'cssmodules_ls',
-          'astro',
-          'tailwindcss',
-          'solidity_ls',
-          'solidity_ls_nomicfoundation',
-          'ts_ls',
-          'gopls',
-          'golangci_lint_ls',
-        },
-        automatic_installation = true,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
-      }
+        require('lspconfig')[server].setup(config)
+      end
     end,
   },
 
@@ -646,6 +583,7 @@ require('lazy').setup({
         -- languages here or re-enable it for the disabled ones.
         local disable_filetypes = { c = true, cpp = true }
         local lsp_format_opt
+
         if disable_filetypes[vim.bo[bufnr].filetype] then
           lsp_format_opt = 'never'
         else
@@ -658,6 +596,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
+        nix = { 'alejandra' },
         -- Conform can also run multiple formatters sequentially
         -- python = { "isort", "black" },
         --
@@ -786,21 +725,22 @@ require('lazy').setup({
   {
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
     -- 'folke/tokyonight.nvim',
-    -- 'rebelot/kanagawa.nvim',
-    'AlexvZyl/nordic.nvim',
+    'rebelot/kanagawa.nvim',
+    -- 'AlexvZyl/nordic.nvim',
     lazy = false,
     priority = 1000, -- Make sure to load this before all the other start plugins.
     init = function()
-      require('nordic').setup {
-        transparent = {
-          bg = true,
-          float = true,
-        },
-      }
+      -- require('nordic').setup {
+      --   transparent = {
+      --     bg = true,
+      --     float = true,
+      --   },
+      -- }
       -- Load the colorscheme here.
       -- 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'
       -- 'kanagawa-dragon'
-      vim.cmd.colorscheme 'nordic'
+      -- 'nordic'
+      vim.cmd.colorscheme 'kanagawa-dragon'
 
       -- Switch between dark or light
       vim.opt.background = 'dark'
@@ -842,7 +782,43 @@ require('lazy').setup({
       'nvim-lua/plenary.nvim',
     },
     opts = {
-      signs = false,
+      signs = true,
+      sign_priority = 8,
+      keyword = {
+        FIX = {
+          icon = " ", -- icon used for the sign, and in search results
+          color = "error", -- can be a hex color, or a named color (see below)
+          alt = { "FIXME", "BUG", "FIXIT", "ISSUE" }, -- a set of other keywords that all map to this FIX keywords
+          -- signs = false, -- configure signs for some keywords individually
+        },
+        TODO = { icon = " ", color = "info" },
+        HACK = { icon = " ", color = "warning" },
+        WARN = { icon = " ", color = "warning", alt = { "WARNING", "XXX" } },
+        PERF = { icon = " ", alt = { "OPTIM", "PERFORMANCE", "OPTIMIZE" } },
+        NOTE = { icon = " ", color = "hint", alt = { "INFO" } },
+        TEST = { icon = "⏲ ", color = "test", alt = { "TESTING", "PASSED", "FAILED" } },
+      },
+      gui_style = {
+        fg = "NONE",         -- The gui style to use for the fg highlight group.
+        bg = "BOLD",         -- The gui style to use for the bg highlight group.
+      },
+      merge_keywords = true, -- when true, custom keywords will be merged with the defaults
+      -- highlighting of the line containing the todo comment
+      -- * before: highlights before the keyword (typically comment characters)
+      -- * keyword: highlights of the keyword
+      -- * after: highlights after the keyword (todo text)
+      highlight = {
+        multiline = true,                -- enable multine todo comments
+        multiline_pattern = "^.",        -- lua pattern to match the next multiline from the start of the matched keyword
+        multiline_context = 10,          -- extra lines that will be re-evaluated when changing a line
+        before = "",                     -- "fg" or "bg" or empty
+        keyword = "wide",                -- "fg", "bg", "wide", "wide_bg", "wide_fg" or empty. (wide and wide_bg is the same as bg, but will also highlight surrounding characters, wide_fg acts accordingly but with fg)
+        after = "fg",                    -- "fg" or "bg" or empty
+        pattern = [[.*<(KEYWORDS)\s*:]], -- pattern or table of patterns, used for highlighting (vim regex)
+        comments_only = true,            -- uses treesitter to match keywords in comments only
+        max_line_len = 800,              -- ignore lines longer than this
+        exclude = {},                    -- list of file types to exclude highlighting
+      },
     },
   },
   { -- Collection of various small independent plugins/modules
